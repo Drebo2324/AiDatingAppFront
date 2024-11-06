@@ -4,7 +4,7 @@ import {User, MessageCircle, X, Heart} from 'lucide-react'
 import { useState, useEffect } from 'react';
 
 const fetchRandomProfile = async () => {
-  const response = await fetch('http://localhost:8080/profiles/random');
+  const response = await fetch('http://localhost:8081/profiles/random');
   if(!response.ok){
     throw new Error('Failed to fetch profile');
   }
@@ -12,7 +12,7 @@ const fetchRandomProfile = async () => {
 }
 
 const saveMatch = async (profileId) => {
-  const response = await fetch('http://localhost:8080/matches', {
+  const response = await fetch('http://localhost:8081/matches', {
     method: 'POST',
     headers:{
       'Content-Type': 'application/json'
@@ -22,6 +22,14 @@ const saveMatch = async (profileId) => {
   if(!response.ok){
     throw new Error('Failed to save match');
   }
+}
+
+const fetchMatches = async () =>{
+  const response = await fetch('http://localhost:8081/matches');
+  if(!response.ok){
+    throw new Error('Faile to fetch match')
+  }
+  return response.json();
 }
 
 const ProfileSelector = ({profile, onSwipe}) => (
@@ -52,21 +60,19 @@ const ProfileSelector = ({profile, onSwipe}) => (
   ) : (<div>Loading...</div>)
 );
 
-const MatchesList = ({onSelectMatch}) => (
+const MatchesList = ({matches, onSelectMatch}) => (
   <div className='rounded-large shadow-lg p-4'>
     <h2 className='text-2xl font-bold mb-4'>Matches</h2>
     <ul>
-    {[
-      { id: 1, firstName: 'test1', lastName: 'testi', imageUrl: 'http://172.21.96.1:8080/bolsonaroGhostBj.jpg'}
-    ].map(match => (
-      <li key={match.id} className='mb-2'>
+    {matches.map(match => (
+      <li key={match.profile.id} className='mb-2'>
         <button 
         className='w-full hover:bg-gray-100 rounded flex items-center'
         onClick={onSelectMatch}
         >
-        <img src={match.imageUrl} className='w-16 h-16 rounded-full mr-3 object-cover' />
+        <img src={'http://localhost:8081/' + match.profile.imageUrl} className='w-16 h-16 rounded-full mr-3 object-cover' />
         <span>
-          <h3 className='font-bold'>{match.firstName} {match.lastName}</h3>
+          <h3 className='font-bold'>{match.profile.firstName} {match.profile.lastName}</h3>
         </span>
         </button>
       </li>
@@ -130,18 +136,30 @@ function App() {
     }
   }
 
+  const loadMatches = async() => {
+    try {
+      const matches = await fetchMatches();
+      setMatches(matches);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   useEffect(() => {
     loadRandomProfile();
+    loadMatches();
   }, {});
 
   const [currentScreen, setCurrentScreen] = useState('profile');
   const [currentProfile, setCurrentProfile] = useState(null);
+  const [matches, setMatches] = useState([]);
 
-  const onSwipe = (profileId, direction) => {
-    if(direction === 'right'){
-      saveMatch(profileId);  
-    }
+  const onSwipe = async (profileId, direction) => {
     loadRandomProfile();
+    if(direction === 'right'){
+      await saveMatch(profileId);
+      await loadMatches();
+    }
   }
 
   const renderScreen = () => {
@@ -149,7 +167,7 @@ function App() {
       case 'profile':
         return <ProfileSelector profile={currentProfile} onSwipe={onSwipe} />;
       case 'matches':
-        return <MatchesList onSelectMatch={() => setCurrentScreen('chat')}/>;
+        return <MatchesList matches={matches} onSelectMatch={() => setCurrentScreen('chat')}/>;
       case 'chat':
         return <ChatScreen />;
     }
